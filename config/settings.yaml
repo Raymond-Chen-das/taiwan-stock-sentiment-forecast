@@ -1,0 +1,69 @@
+project:
+  name: "taiwan-sentiment-forecast"
+  train_start_date: "2021-01-01"
+  train_end_date: "2024-12-31"
+  test_start_date: "2025-01-01"
+  test_end_date: "2026-01-31"
+
+data_sources:
+  taiex:
+    source: "twse"
+
+  google_trends:
+    keywords:
+      primary: ["台股", "股市", "台積電"]
+      secondary: ["黃金", "美金匯率", "0050"]
+    geo: "TW"
+    chunk_months: 5
+    overlap_days: 30
+    request_delay_sec: [10, 30]
+
+  ptt:
+    board: "Stock"
+    base_url: "https://www.ptt.cc/bbs/Stock/"
+    request_delay_sec: [0.5, 1.5]
+    filter_tags: null
+    collect_comments: true
+
+
+index_construction:
+  attention_index:
+    source: "google_trends"
+    aggregation: "sum"
+
+  bullish_index:
+    source: "ptt"
+    method: "push_boo_ratio"
+    formula: "log_ratio"
+
+  propagation_index:
+    source: "ptt"
+    features: ["push_total", "boo_total", "arrow_total"]
+    method: "pca"
+    min_variance_explained: 0.70
+
+  normalization: "zscore"
+
+time_alignment:
+  base_calendar: "twse"
+  non_trading_day_rule: "forward_fill_to_next"
+
+model:
+  sliding_window_months: [1, 2, 3]
+  pso:
+    n_particles: 30
+    max_iterations: 100
+    w_inertia: 0.7
+    c1_cognitive: 1.5
+    c2_social: 1.5
+  sds_detection:
+    alpha_values: [0.15, 0.20, 0.25, 0.30]
+    theta_values: [0.60, 0.65, 0.70, 0.75]
+  boundary_tolerance:
+    d_inner: 0.7
+    d_outer: 2.5
+  filtering:
+    support_threshold: 2
+    unreliable_support_threshold: 2
+    gini_avg_threshold: 0.48
+    neighbors_align: true

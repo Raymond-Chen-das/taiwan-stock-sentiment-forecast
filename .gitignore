@@ -1,0 +1,44 @@
+# Credentials (contains API keys)
+config/credentials.yaml
+
+# Data files (too large for git, regenerable via scripts)
+data/raw/
+data/interim/
+data/processed/
+
+# Paper PDF & slides (copyrighted)
+paper/
+experiments/
+
+# Agent prompt (development artifact)
+agent_prompt.md
+
+# Claude Code local settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+venv/
+.venv/
+.env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+logs/
+*.log
