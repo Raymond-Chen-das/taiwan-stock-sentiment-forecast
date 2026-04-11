@@ -68,7 +68,7 @@ taiwan-sentiment-forecast/
 2. **HDS 分割**：PSO 搜尋最優橢球半徑，將空間分為內/外子空間
 3. **SDS 偵測**：四個子模型（AI×BI / AI×PI / BI×PI / AI×BI×PI）獨立偵測
 4. **多重過濾**：Support、Gini 指數、K 近鄰一致性篩選
-5. **LLM 增強**：Claude Opus 4.6 對 PTT 文章語義分類，替代測試期推噓比 BI
+5. **LLM 增強**：對 PTT 文章語義分類，替代測試期推噓比 BI
 
 ### 修正的方法論問題
 
