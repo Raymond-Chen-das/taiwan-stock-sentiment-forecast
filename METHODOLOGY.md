@@ -1,87 +1,87 @@
-# Methodology Notes
+# 方法論說明
 
-## Problem Framing
+## 研究問題
 
-Replicate Liu et al. (2025, *Knowledge-Based Systems*) — a social media sentiment spatial model — on Taiwan's TAIEX index, and propose an LLM-enhanced Bullish Index to address PTT's irony-heavy comment culture.
-
----
-
-## Data Sources
-
-| Index | Source | Measures |
-|-------|--------|---------|
-| Attention Index (AI) | Google Trends | Investor search intensity |
-| Bullish Index (BI) | PTT Stock board | Retail sentiment direction |
-| Propagation Index (PI) | PTT Stock board | Community engagement (PCA) |
-
-**Training**: 2021-01-04 – 2024-12-31 (970 trading days)  
-**Test**: 2025-01-02 – 2026-01-30 (262 trading days)
-
-### Why YouTube Was Rejected
-
-During scoping, YouTube was evaluated as a PI data source but rejected due to data sparsity:
-
-| Metric | PTT | YouTube |
-|--------|-----|---------|
-| Day coverage | 100% | 42.8% |
-| Daily avg | 78.4 posts | 2.17 videos |
-| 2021 monthly avg | 1,600+ | 5–9 |
-
-With median 1 video/day, PCA dimensionality reduction on a 1-sample/day input would produce statistically meaningless components. Both BI and PI therefore use PTT — consistent with the original paper's single-platform design.
+將 Liu et al.（2025, *Knowledge-Based Systems*）提出的社群媒體情緒空間模型複製並應用於台灣加權股價指數（TAIEX），同時提出以 LLM 語義分類增強看漲指數（BI）的方案，解決 PTT 反諷文化造成的噪音問題。
 
 ---
 
-## Temporal Alignment
+## 資料來源
 
-Non-trading days (weekends, holidays) exist in PTT data but not in TAIEX. Strategy: sum PTT metrics for all non-trading days and attribute to the next trading day. This mirrors how retail traders process weekend information on Monday's open.
+| 指標 | 來源 | 衡量面向 |
+|------|------|----------|
+| 關注度指數（AI） | Google Trends | 投資者搜尋行為熱度 |
+| 看漲指數（BI） | PTT Stock 板 | 散戶情緒方向 |
+| 傳播指數（PI） | PTT Stock 板 | 社群互動強度（PCA 降維） |
+
+- **訓練期**：2021-01-04 – 2024-12-31（970 個交易日）
+- **測試期**：2025-01-02 – 2026-01-30（262 個交易日）
+
+### 為什麼排除 YouTube
+
+評估初期曾將 YouTube 納入 PI 資料來源的候選，最終因資料過於稀疏而排除：
+
+| 指標 | PTT | YouTube |
+|------|-----|---------|
+| 交易日覆蓋率 | 100% | 42.8% |
+| 日均數量 | 78.4 篇 | 2.17 支 |
+| 2021 年月均 | 1,600+ 篇 | 5–9 支 |
+
+每日中位數僅 1 支影片，對單樣本/天的輸入進行 PCA 降維在統計上毫無意義。最終 BI 與 PI 均採用 PTT 資料，與原論文單一平台的設計一致。
+
+---
+
+## 時間對齊
+
+PTT 有週末與假日資料，TAIEX 只有交易日。處理策略：將所有非交易日的 PTT 指標加總，歸入下一個交易日，模擬散戶在週末累積資訊、週一開盤反映的行為。
 
 ```
-Friday data  →  Friday row
-Saturday + Sunday → Monday row  (aggregated)
+週五資料  →  週五交易日列
+週六 + 週日  →  週一交易日列（加總）
 ```
 
 ---
 
-## Sentiment Space Model
+## 情緒空間模型
 
-Three z-scored indices (AI, BI, PI) form a 3D coordinate per trading day. The model searches for a **Sentiment-Driven Subspace (SDS)** — a region where the historical majority of points belong to the same market trend (up or down).
+將 AI、BI、PI 三個 Z-score 標準化後的指標視為三維空間中的座標點，每個交易日對應一個點。模型尋找**情緒驅動子空間（SDS）**——歷史上多數點屬於同一趨勢方向（漲或跌）的空間區域。
 
-### HDS Boundary (Hyperdimensional Sphere)
+### HDS 邊界（超維橢球）
 
-The SDS boundary is an **axis-aligned ellipsoid** in 3D space. A point is *inside* the ellipsoid if:
+SDS 的邊界是三維空間中的**軸對齊橢球體**，滿足以下條件的點位於橢球內：
 
 ```
 (AI/r_AI)² + (BI/r_BI)² + (PI/r_PI)² ≤ 1
 ```
 
-Radii `(r_AI, r_BI, r_PI)` are optimized by PSO over the trailing window of training data.
+三個半徑 `(r_AI, r_BI, r_PI)` 由 PSO 在滾動訓練視窗內最佳化求得。
 
-### PSO Optimization
+### PSO 最佳化
 
-- 30 particles × 100 iterations  
-- Fitness = `coverage × accuracy` over the training window  
-- Four sub-models: A (AI×BI), B (AI×PI), C (BI×PI), D (AI×BI×PI)
+- 30 個粒子 × 100 次迭代
+- 適應函數 = 訓練視窗內的 `覆蓋率 × 準確率`
+- 四個子模型：A（AI×BI）、B（AI×PI）、C（BI×PI）、D（AI×BI×PI）
 
-### Multi-Filter Prediction
+### 多重過濾預測
 
-A prediction is issued only when all active filters pass:
+只有通過以下所有過濾條件時才發出預測信號：
 
-| Filter | Threshold | Rationale |
-|--------|-----------|-----------|
-| Support | ≥ 2 historical matches | Avoid one-shot patterns |
-| Gini impurity | < 0.48 | Require dominant trend |
-| k-NN alignment | majority agree | Local consistency check |
+| 過濾條件 | 門檻 | 目的 |
+|----------|------|------|
+| Support | ≥ 2 筆歷史匹配 | 避免一次性模式 |
+| Gini 不純度 | < 0.48 | 要求趨勢方向明確 |
+| K 近鄰一致性 | 多數相同方向 | 局部空間一致性驗證 |
 
 ---
 
-## Methodological Fixes
+## 修正的方法論問題
 
-Two common but subtle issues were identified and corrected:
+在複製原論文過程中發現並修正了兩個常見但隱性的問題：
 
-### 1. Z-Score Data Leakage
+### 1. Z-score 資料洩漏（Data Leakage）
 
-**Problem**: Normalizing with full-period μ/σ leaks test-period statistics into training.  
-**Fix**: Compute μ and σ on training data only; apply to test data with training statistics.
+**問題**：用全期資料計算 μ/σ 做標準化，等於把測試期的統計資訊提前洩漏給訓練期。  
+**修正**：僅用訓練期資料計算 μ 和 σ，再套用至測試期。
 
 ```python
 mu = train_df[col].mean()
@@ -89,50 +89,52 @@ sigma = train_df[col].std()
 df[f"{col}_zscore"] = (df[col] - mu) / sigma
 ```
 
-### 2. Look-Ahead Bias
+### 2. 預測目標時間偏移（Look-Ahead Bias）
 
-**Problem**: If target label `y[t] = 1` when `close[t] > close[t-1]`, and features are also from day `t`, the model predicts today using today's data.  
-**Fix**: `y = returns.shift(-1)` — use day `t` features to predict day `t+1` return.
-
----
-
-## LLM Enhancement
-
-PTT's comment culture creates noise in push/boo counts:
-- "推 早安大爆崩" — social greeting, not bearish signal  
-- "噓 又漲了" — sarcastic boo on a rising stock  
-
-**Solution**: Use Claude Opus 4.6 to semantically classify each article's comment thread as +1 (bullish), 0 (neutral), or -1 (bearish), replacing the raw push/boo ratio.
-
-**Hybrid BI design** (avoids re-labeling 970 training days):
-- Training period: original push/boo ratio BI  
-- Test period: LLM-classified BI  
-
-PSO trains on ratio-BI patterns; at inference, LLM-BI is the input signal.
+**問題**：若目標標籤 `y[t] = 1` 表示「第 t 天上漲」，而特徵也來自第 t 天，等於用當天資訊預測當天結果。  
+**修正**：`y = returns.shift(-1)`，用第 t 天的情緒特徵預測第 t+1 天的漲跌。
 
 ---
 
-## Grid Search Results (96 combinations)
+## LLM 增強方案
 
-Parameters searched: α ∈ {0.20, 0.25, 0.30}, θ ∈ {0.55, 0.60, 0.65, 0.70, 0.75, 0.80}, window ∈ {20, 40, 60} days, version ∈ {Baseline, LLM-BI}
+PTT 的推噓機制會因社群文化產生語義噪音：
 
-| Configuration | Version | Coverage | Accuracy |
-|---------------|---------|----------|----------|
+- 「推 早安大爆崩」— 社交問候語，非看跌信號
+- 「噓 又漲了」— 反諷式噓聲，實為看漲情緒
+
+**解決方案**：使用 Claude Opus 4.6 對每篇文章的推噓留言串進行語義分類，輸出 +1（看漲）、0（中性）或 -1（看跌），取代原始推噓比。
+
+**混合 BI 設計**（避免重新標注 970 個訓練日）：
+
+- 訓練期：沿用原始推噓比 BI
+- 測試期：改用 LLM 分類 BI
+
+PSO 在推噓比 BI 的模式上訓練，推論時輸入 LLM-BI 信號。
+
+---
+
+## Grid Search 結果（96 組參數組合）
+
+搜尋範圍：α ∈ {0.20, 0.25, 0.30}、θ ∈ {0.55, 0.60, 0.65, 0.70, 0.75, 0.80}、視窗 ∈ {20, 40, 60} 天、版本 ∈ {Baseline, LLM-BI}
+
+| 配置 | 版本 | 覆蓋率 | 準確率 |
+|------|------|--------|--------|
 | w=40, α=0.25, θ=0.75 | **LLM-BI** | 6.2% | **81.2%** |
 | w=40, α=0.25, θ=0.75 | Baseline | 6.1% | 68.8% |
 | w=20, α=0.20, θ=0.65 | **LLM-BI** | **30.4%** | **62.0%** |
 | w=20, α=0.20, θ=0.65 | Baseline | 27.2% | 59.2% |
 
-LLM-BI outperforms Baseline on accuracy across nearly all 48 parameter combinations.
+LLM-BI 在 48 組參數配置中幾乎全面優於 Baseline。
 
 ---
 
-## Comparison with Original Paper
+## 與原論文的比較
 
-| Aspect | Liu et al. (2025) | This Study |
-|--------|-------------------|------------|
-| Market | Weibo + A-share | PTT + TAIEX |
-| BI source | Weibo sentiment | PTT push/boo ratio → LLM |
-| Data leakage | Not discussed | Explicitly corrected |
-| Best accuracy | ~72% | 81.2% (low coverage) |
-| Practical accuracy | ~65% | 62.0% (30% coverage) |
+| 面向 | Liu et al.（2025） | 本研究 |
+|------|-------------------|--------|
+| 市場 | 微博 + A 股 | PTT + TAIEX |
+| BI 來源 | 微博情緒 | PTT 推噓比 → LLM 語義分類 |
+| 資料洩漏 | 未討論 | 明確修正 |
+| 最佳準確率 | ~72% | 81.2%（低覆蓋率） |
+| 實用準確率 | ~65% | 62.0%（30% 覆蓋率） |
