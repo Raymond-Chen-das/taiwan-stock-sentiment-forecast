@@ -1,5 +1,7 @@
 # 台灣股市情緒空間趨勢預測模型
 
+[![tests](https://github.com/Raymond-Chen-das/taiwan-stock-sentiment-forecast/actions/workflows/tests.yml/badge.svg)](https://github.com/Raymond-Chen-das/taiwan-stock-sentiment-forecast/actions/workflows/tests.yml)
+
 > **課程專題** — 東吳大學資料科學碩專「時空分析方法應用」
 
 將社群媒體情緒空間模型（Liu et al., 2025, *Knowledge-Based Systems*）應用於台灣加權股價指數 (TAIEX) 趨勢預測，並提出以大型語言模型 (LLM) 增強看漲指數的方案。
