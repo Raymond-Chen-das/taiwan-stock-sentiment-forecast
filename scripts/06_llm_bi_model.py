@@ -25,6 +25,7 @@ from src.models.sds_detector import SDSDetector
 from src.models.evaluator import Evaluator
 from src.utils.config_loader import get_config, get_data_dir
 from src.utils.logging_utils import setup_logger
+from src.utils.preprocessing import train_only_zscore, add_next_day_target
 import json
 
 logger = setup_logger("llm_bi_model")
@@ -96,19 +97,9 @@ def load_and_merge_llm(test_start: str = "2025-01-01") -> pd.DataFrame:
         taiex[["date", "close", "daily_return", "trend_label"]], on="date"
     ).sort_values("date").reset_index(drop=True)
 
-    # Z-score（只用訓練集統計量）
-    train_mask = merged["date"] < pd.Timestamp(test_start)
-    for raw_col, z_col in [("ai_raw", "ai_zscore"), ("bi_raw", "bi_zscore"), ("pi_raw", "pi_zscore")]:
-        train_mean = merged.loc[train_mask, raw_col].mean()
-        train_std = merged.loc[train_mask, raw_col].std()
-        if train_std == 0:
-            train_std = 1.0
-        merged[z_col] = (merged[raw_col] - train_mean) / train_std
-
-    # 預測目標 shift(-1)
-    merged["target"] = merged["trend_label"].shift(-1)
-    merged = merged.dropna(subset=["target"]).reset_index(drop=True)
-    merged["target"] = merged["target"].astype(int)
+    # Z-score（只用訓練集統計量）+ 預測目標 shift(-1)，共用 src.utils.preprocessing
+    merged = train_only_zscore(merged, test_start)
+    merged = add_next_day_target(merged)
 
     return merged
 

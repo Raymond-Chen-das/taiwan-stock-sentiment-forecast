@@ -28,6 +28,7 @@ from src.models.sds_detector import SDSDetector
 from src.models.evaluator import Evaluator
 from src.utils.config_loader import get_config, get_data_dir
 from src.utils.logging_utils import setup_logger
+from src.utils.preprocessing import train_only_zscore, add_next_day_target
 
 logger = setup_logger("run_model")
 
@@ -65,23 +66,12 @@ def load_and_merge(test_start: str = "2025-01-01") -> pd.DataFrame:
         taiex[["date", "close", "daily_return", "trend_label"]], on="date"
     ).sort_values("date").reset_index(drop=True)
 
-    # 修正 1: Z-score 只用訓練集的 mean/std（防止資料洩漏）
-    train_mask = merged["date"] < pd.Timestamp(test_start)
-    for raw_col, z_col in [("ai_raw", "ai_zscore"), ("bi_raw", "bi_zscore"), ("pi_raw", "pi_zscore")]:
-        train_mean = merged.loc[train_mask, raw_col].mean()
-        train_std = merged.loc[train_mask, raw_col].std()
-        merged[z_col] = (merged[raw_col] - train_mean) / train_std
-
-    logger.info(
-        f"Z-score 使用訓練集統計量（< {test_start}，{train_mask.sum()} 筆）"
-    )
-
-    # 修正 2: 預測目標的時間對齊（論文 Section 4.2.4）
-    # 原論文定義 m_{t+1} = sign(CP_{t+1} - CP_t)
-    # 即：用 t 天的情緒指標預測 t+1 天的漲跌
-    merged["target"] = merged["trend_label"].shift(-1)
-    merged = merged.dropna(subset=["target"]).reset_index(drop=True)
-    merged["target"] = merged["target"].astype(int)
+    # 修正 1: Z-score 只用訓練集 mean/std（防止資料洩漏）
+    # 修正 2: 預測目標 shift(-1)（避免 look-ahead bias，論文 Section 4.2.4）
+    # 兩者皆抽至 src.utils.preprocessing，供 05/06/07 共用並受單元測試覆蓋
+    merged = train_only_zscore(merged, test_start)
+    logger.info(f"Z-score 使用訓練集統計量（< {test_start}）")
+    merged = add_next_day_target(merged)
 
     return merged
 

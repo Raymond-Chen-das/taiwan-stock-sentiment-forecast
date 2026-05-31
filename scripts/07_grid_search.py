@@ -26,6 +26,7 @@ from src.models.sds_detector import SDSDetector
 from src.models.evaluator import Evaluator
 from src.utils.config_loader import get_config, get_data_dir
 from src.utils.logging_utils import setup_logger
+from src.utils.preprocessing import train_only_zscore, add_next_day_target
 
 logger = setup_logger("grid_search")
 
@@ -51,15 +52,8 @@ def load_baseline_data(test_start: str = "2025-01-01") -> pd.DataFrame:
         taiex[["date", "close", "daily_return", "trend_label"]], on="date"
     ).sort_values("date").reset_index(drop=True)
 
-    train_mask = merged["date"] < pd.Timestamp(test_start)
-    for raw_col, z_col in [("ai_raw", "ai_zscore"), ("bi_raw", "bi_zscore"), ("pi_raw", "pi_zscore")]:
-        train_mean = merged.loc[train_mask, raw_col].mean()
-        train_std = merged.loc[train_mask, raw_col].std()
-        merged[z_col] = (merged[raw_col] - train_mean) / train_std
-
-    merged["target"] = merged["trend_label"].shift(-1)
-    merged = merged.dropna(subset=["target"]).reset_index(drop=True)
-    merged["target"] = merged["target"].astype(int)
+    merged = train_only_zscore(merged, test_start)
+    merged = add_next_day_target(merged)
 
     return merged
 
@@ -99,17 +93,8 @@ def load_llm_data(test_start: str = "2025-01-01") -> pd.DataFrame:
         taiex[["date", "close", "daily_return", "trend_label"]], on="date"
     ).sort_values("date").reset_index(drop=True)
 
-    train_mask = merged["date"] < pd.Timestamp(test_start)
-    for raw_col, z_col in [("ai_raw", "ai_zscore"), ("bi_raw", "bi_zscore"), ("pi_raw", "pi_zscore")]:
-        train_mean = merged.loc[train_mask, raw_col].mean()
-        train_std = merged.loc[train_mask, raw_col].std()
-        if train_std == 0:
-            train_std = 1.0
-        merged[z_col] = (merged[raw_col] - train_mean) / train_std
-
-    merged["target"] = merged["trend_label"].shift(-1)
-    merged = merged.dropna(subset=["target"]).reset_index(drop=True)
-    merged["target"] = merged["target"].astype(int)
+    merged = train_only_zscore(merged, test_start)
+    merged = add_next_day_target(merged)
 
     return merged
 
