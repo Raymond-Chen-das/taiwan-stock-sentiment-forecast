@@ -108,6 +108,8 @@ python scripts/08_generate_figures.py
 
 Liu, W., Chen, Y., Yang, X., & Wang, J. (2025). Sentiment-driven subspace detection for stock trend prediction via particle swarm optimization. *Knowledge-Based Systems*, 309, 112739.
 
-## 授權
+## 授權 License
 
-本專案為課堂學術研究用途。
+本專案採用 [MIT License](LICENSE) 授權，歡迎自由使用、修改與分享。
+
+This project is licensed under the [MIT License](LICENSE).
